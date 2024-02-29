@@ -17,8 +17,7 @@ fuzz_target!(|seed: u64| {
 
     let source = Source::new(&data_to_parse).with_chunk_size(4096);
 
-    let mut save_buffer = BufferPreallocated::new(1_048_576).with_name("save buffer");
     let mut work_buffer = BufferPreallocated::new(1_048_576).with_name("work buffer");
-    let result = parse(source, &mut save_buffer, &mut work_buffer);
-    assert_eq!(Ok(expected), result);
+    let result = parse(source, &mut work_buffer).unwrap();
+    assert_eq!(expected, result);
 });

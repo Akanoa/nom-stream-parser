@@ -1,10 +1,12 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, Criterion, criterion_group, criterion_main};
 
 use bench_macros::generate_bench;
+use nom_stream_parser::{
+    Buffer, DataSource, Heuristic, StartGroup, StreamParser, StreamParserError,
+};
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
-use nom_stream_parser::{Buffer, Heuristic, StartGroup, StreamParser, StreamParserError};
 use utils::parsers::{parse_data, start_group_parenthesis};
-use utils::seeder::{source_data, SeederConfig};
+use utils::seeder::{SeederConfig, source_data};
 use utils::source::Source;
 
 pub fn parse<B: Buffer>(
@@ -18,8 +20,7 @@ pub fn parse<B: Buffer>(
         start_character: b"(",
     };
     let stream = StreamParser::new(
-        source,
-        save_buffer,
+        DataSource::Iterator::<_, &[u8]>(source),
         work_buffer,
         parser,
         Heuristic::SearchGroup(search_group_heuristic),

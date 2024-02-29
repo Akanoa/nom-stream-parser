@@ -1,10 +1,11 @@
-use nom_stream_parser::{Buffer, Heuristic, StartGroup, StreamParser, StreamParserError};
+use nom_stream_parser::{
+    Buffer, DataSource, Heuristic, StartGroup, StreamParser, StreamParserError,
+};
 use utils::parsers::{parse_data, start_group_parenthesis};
 use utils::source::Source;
 
 pub fn parse<B: Buffer>(
     source: Source,
-    save_buffer: &mut B,
     work_buffer: &mut B,
 ) -> Result<Vec<Vec<u8>>, StreamParserError> {
     let parser = parse_data;
@@ -13,8 +14,7 @@ pub fn parse<B: Buffer>(
         start_character: b"(",
     };
     let stream = StreamParser::new(
-        source,
-        save_buffer,
+        DataSource::<_, &[u8]>::Iterator(source),
         work_buffer,
         parser,
         Heuristic::SearchGroup(search_group_heuristic),

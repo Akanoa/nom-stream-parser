@@ -18,28 +18,14 @@ pub enum Heuristic<'a> {
 impl<'a> Heuristic<'a> {
     pub(crate) fn start_group<'b, B: Buffer, R>(
         &'b mut self,
-        save_buffer: &mut B,
         work_buffer: &'b mut B,
         state: &mut (SearchState, ParsableState),
         cursor: &mut usize,
     ) -> Result<Option<ReturnState<R>>, StreamParserError> {
         match self {
-            Heuristic::Increment => search_for_start_group_increment(cursor),
-            Heuristic::SearchGroup(start_group) => search_for_start_group_from_parser(
-                save_buffer,
-                work_buffer,
-                state,
-                cursor,
-                start_group,
-            ),
-        }
-    }
-
-    pub(crate) fn prevent_infinite_loop<B: Buffer>(&mut self, save_buffer: &mut B) -> bool {
-        match self {
-            Heuristic::Increment => false,
+            Heuristic::Increment => Ok(None),
             Heuristic::SearchGroup(start_group) => {
-                prevent_infinite_loop_start_group(save_buffer, start_group)
+                search_for_start_group_from_parser(work_buffer, state, cursor, start_group)
             }
         }
     }
@@ -54,15 +40,7 @@ pub struct StartGroup<'a> {
     pub start_character: &'a [u8],
 }
 
-fn search_for_start_group_increment<R>(
-    cursor: &mut usize,
-) -> Result<Option<ReturnState<R>>, StreamParserError> {
-    *cursor += 1;
-    Ok(None)
-}
-
 fn search_for_start_group_from_parser<B: Buffer, R>(
-    save_buffer: &mut B,
     work_buffer: &mut B,
     state: &mut (SearchState, ParsableState),
     cursor: &mut usize,
@@ -80,7 +58,7 @@ fn search_for_start_group_from_parser<B: Buffer, R>(
             tracing::debug!("No group start found");
             tracing::trace!("In {}", debug!(input));
             tracing::debug!("Cleaning buffers");
-            save_buffer.clear();
+            //save_buffer.clear();
             work_buffer.clear();
             *cursor = 0;
             tracing::trace!("Asking for more data");
@@ -117,7 +95,7 @@ fn search_for_start_group_from_parser<B: Buffer, R>(
                     tracing::debug!("No group start found");
                     tracing::trace!("In {}", debug!(input));
                     tracing::debug!("Cleaning buffers");
-                    save_buffer.clear();
+                    //save_buffer.clear();
                     work_buffer.clear();
                     *cursor = 0;
                     tracing::trace!("Asking for more data");
@@ -129,21 +107,4 @@ fn search_for_start_group_from_parser<B: Buffer, R>(
     }
 
     Ok(None)
-}
-
-fn prevent_infinite_loop_start_group<B: Buffer>(
-    save_buffer: &B,
-    start_group: &mut StartGroup,
-) -> bool {
-    tracing::trace!("Save buffer : {}", debug!(save_buffer));
-    let peek_start_group_result = nom::combinator::peek(start_group.parser)(save_buffer);
-    if let Ok((remain, found)) = peek_start_group_result {
-        tracing::trace!("Remain : {}", debug!(remain));
-        tracing::trace!("Found : {}", debug!(found));
-        if found.is_empty() {
-            tracing::trace!("The only data left to parse are an initial group");
-            return true;
-        }
-    }
-    false
 }

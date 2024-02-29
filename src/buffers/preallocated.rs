@@ -1,9 +1,10 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use crate::debug;
 use crate::errors::StreamParserError;
 use crate::traits::Buffer;
 
+/// A buffer of preallocated heap data
 pub struct BufferPreallocated<'a> {
     cursor: usize,
     buffer: Vec<u8>,
@@ -19,6 +20,7 @@ impl Deref for BufferPreallocated<'_> {
 }
 
 impl<'a> BufferPreallocated<'a> {
+    /// Create a buffer of fixed sized
     pub fn new(buffer_size: usize) -> Self {
         BufferPreallocated {
             cursor: 0,
@@ -27,9 +29,16 @@ impl<'a> BufferPreallocated<'a> {
         }
     }
 
+    /// Define a name to buffer, mostly for debugging purpose
     pub fn with_name(mut self, name: &'a str) -> Self {
         self.name = name;
         self
+    }
+}
+
+impl DerefMut for BufferPreallocated<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.buffer[..self.cursor]
     }
 }
 
@@ -45,9 +54,9 @@ impl Buffer for BufferPreallocated<'_> {
         let free_space = self.buffer.len() - self.cursor;
         tracing::trace!("[{}] free space : {free_space}", self.name);
         tracing::trace!("[{}] other len : {}", self.name, other.len());
-        // si la taille de other dépasse la taille du buffer restant
+        // Attempt to append data size greater than the available space
         if other.len() > free_space {
-            // si les données sont évinceables on essaie de les évincer
+            // Trying to evince useless data
             tracing::debug!(
                 "[{}] Evinceable ? {} {:?}",
                 self.name,
@@ -93,6 +102,18 @@ impl Buffer for BufferPreallocated<'_> {
     fn clear(&mut self) {
         tracing::trace!("[{}] Clearing buffer", self.name);
         self.cursor = 0;
+    }
+
+    fn incr_cursor(&mut self, offset: usize) {
+        self.cursor += offset;
+    }
+
+    fn get_write_buffer(&mut self) -> &mut [u8] {
+        &mut self.buffer
+    }
+
+    fn reset(&mut self) {
+        self.cursor = 0
     }
 }
 

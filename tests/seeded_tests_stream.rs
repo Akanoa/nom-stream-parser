@@ -19,7 +19,6 @@ pub fn parse<B: Buffer>(
     };
     let stream = StreamParser::new(
         source,
-        save_buffer,
         work_buffer,
         parser,
         Heuristic::SearchGroup(search_group_heuristic),
