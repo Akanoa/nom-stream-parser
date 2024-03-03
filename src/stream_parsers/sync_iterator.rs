@@ -3,10 +3,10 @@ use std::fmt::Debug;
 
 use itertools::{unfold, Unfold};
 
-use crate::{Buffer, debug, Heuristic, ParserFunction, StreamParserError};
 use crate::logic::parse_internal;
 use crate::parser_state::{ParsableState, SearchState};
 use crate::stream_parsers::ParserCommonFields;
+use crate::{debug, Buffer, Heuristic, ParserFunction, StreamParserError};
 
 type SteamUnfold<'a, I, B, O> =
     Unfold<ParserState<'a, I, B, O>, Logic<ParserState<'a, I, B, O>, O>>;

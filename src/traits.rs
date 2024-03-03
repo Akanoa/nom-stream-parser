@@ -24,4 +24,5 @@ pub trait Buffer: Deref<Target = [u8]> + DerefMut {
     /// Get the available slice of data for writing
     fn get_write_buffer(&mut self) -> &mut [u8];
     fn reset(&mut self);
+    fn evince(&mut self, evinceable: Option<usize>, other: &[u8]) -> Result<(), StreamParserError>;
 }

@@ -19,8 +19,15 @@ path = ".."
 path = "../utils"
 
 [[bin]]
-name = "stream"
-path = "fuzz_targets/stream.rs"
+name = "stream_iterator"
+path = "fuzz_targets/stream_iterator.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "stream_reader"
+path = "fuzz_targets/stream_reader.rs"
 test = false
 doc = false
 bench = false

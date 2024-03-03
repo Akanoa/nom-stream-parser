@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::io::Read;
-use std::ops::{Deref, DerefMut};
 
 use crate::heuristic::Heuristic;
 use crate::traits::{Buffer, ParserFunction};
@@ -49,30 +48,6 @@ where
     #[allow(unused)]
     /// Used to debug the system when it comes to infinite loop
     i: usize,
-}
-
-impl<'a, I, B, R, O> Deref for ParserState<'a, I, B, R, O>
-where
-    B: Buffer,
-    R: Read,
-    I: Iterator<Item = &'a [u8]>,
-{
-    type Target = B;
-
-    fn deref(&self) -> &Self::Target {
-        &self.work_buffer
-    }
-}
-
-impl<'a, I, B, R, O> DerefMut for ParserState<'a, I, B, R, O>
-where
-    I: Iterator<Item = &'a [u8]>,
-    R: Read,
-    B: Buffer,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.work_buffer
-    }
 }
 
 impl<'a, I, B, R, O> ParserState<'a, I, B, R, O>

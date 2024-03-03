@@ -2,19 +2,6 @@
 
 ## Usage
 
-```rust
-fn main() {
-    let data_iterarator = MyIterator;
-    let mut save_buffer = BufferPreallocated::new(1_048_576);
-    let mut work_buffer = BufferPreallocated::new(1_048_576);
-    let stream_parser = StreamParser::new(
-        data_iterarator,
-        save_buffer,
-        work_buffer);
-    for result in stream_parser {}
-}
-```
-
 ## Streaming mode
 
 The [nom](https://docs.rs/nom/latest/nom/) crate is a parser combinator which allow to parse

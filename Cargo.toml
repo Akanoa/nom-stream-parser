@@ -23,7 +23,11 @@ test-pretty-log = "0.6.2"
 utils = { path = "utils" }
 
 [[bench]]
-name = "stream"
+name = "stream_iterator"
+harness = false
+
+[[bench]]
+name = "stream_reader"
 harness = false
 
 [features]

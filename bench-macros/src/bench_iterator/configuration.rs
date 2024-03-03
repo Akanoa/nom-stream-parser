@@ -1,10 +1,10 @@
-use syn_helpers::proc_macro2::{TokenStream, TokenTree};
+use proc_macro2::{Ident, TokenStream, TokenTree};
 use syn_helpers::syn::parse::{Parse, ParseStream, Peek};
 use syn_helpers::syn::punctuated::Punctuated;
-use syn_helpers::syn::{Expr, Ident, LitInt, Result, Token};
+use syn_helpers::syn::{Expr, LitInt, Token};
 use syn_helpers::Argument;
 
-pub struct BenchesConfiguration {
+pub struct BenchesConfigurationIterator {
     pub name: Ident,
     pub seed: u64,
     pub parser: Expr,
@@ -13,8 +13,8 @@ pub struct BenchesConfiguration {
     pub config: Expr,
 }
 
-impl Parse for BenchesConfiguration {
-    fn parse(input: ParseStream) -> Result<Self> {
+impl Parse for BenchesConfigurationIterator {
+    fn parse(input: ParseStream) -> syn_helpers::syn::Result<Self> {
         let Argument(name, bench_name) = input.parse::<Argument<Ident>>()?;
         if &name != "name" {
             return Err(syn_helpers::syn::Error::new(
@@ -63,7 +63,7 @@ impl Parse for BenchesConfiguration {
             ));
         }
 
-        Ok(BenchesConfiguration {
+        Ok(BenchesConfigurationIterator {
             name: bench_name,
             seed: seed.base10_parse()?,
             parser,
@@ -79,7 +79,7 @@ pub struct ChunkSizeList {
 }
 
 impl Parse for ChunkSizeList {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn_helpers::syn::Result<Self> {
         let mut segments: Punctuated<LitInt, Token![,]> = Punctuated::new();
 
         let first = parse_until(input, Token![,])?;
@@ -95,13 +95,13 @@ impl Parse for ChunkSizeList {
         let sizes = segments
             .into_iter()
             .map(|segment| segment.base10_parse::<u64>())
-            .collect::<Result<Vec<u64>>>()?;
+            .collect::<syn_helpers::syn::Result<Vec<u64>>>()?;
 
         Ok(ChunkSizeList { sizes })
     }
 }
 
-fn parse_until<E: Peek>(input: ParseStream, end: E) -> Result<TokenStream> {
+fn parse_until<E: Peek>(input: ParseStream, end: E) -> syn_helpers::syn::Result<TokenStream> {
     let mut tokens = TokenStream::new();
     while !input.is_empty() && !input.peek(end) {
         let next: TokenTree = input.parse()?;

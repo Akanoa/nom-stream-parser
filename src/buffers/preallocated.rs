@@ -66,23 +66,8 @@ impl Buffer for BufferPreallocated<'_> {
 
             tracing::trace!("Before eviction {}", debug!(&self.buffer[..self.cursor]));
 
-            match evinceable {
-                Some(0) | None => {
-                    return Err(StreamParserError::ExceededBuffer {
-                        buffer_size: self.buffer.len(),
-                        data_size: other.len(),
-                    })
-                }
-                Some(evince_number) => {
-                    tracing::debug!("[{}] Evincing data", self.name);
-                    tracing::trace!("[{}] Evincing {} bytes", self.name, evince_number);
-                    for (i, x) in (evince_number..self.cursor).enumerate() {
-                        self.buffer[i] = self.buffer[x];
-                    }
-                    self.cursor -= evince_number;
-                    eviction = true;
-                }
-            }
+            self.evince(evinceable, other)?;
+            eviction = true;
         }
 
         self.buffer[self.cursor..other.len() + self.cursor].clone_from_slice(other);
@@ -109,11 +94,29 @@ impl Buffer for BufferPreallocated<'_> {
     }
 
     fn get_write_buffer(&mut self) -> &mut [u8] {
-        &mut self.buffer
+        &mut self.buffer[self.cursor..]
     }
 
     fn reset(&mut self) {
         self.cursor = 0
+    }
+
+    fn evince(&mut self, evinceable: Option<usize>, other: &[u8]) -> Result<(), StreamParserError> {
+        match evinceable {
+            Some(0) | None => Err(StreamParserError::ExceededBuffer {
+                buffer_size: self.buffer.len(),
+                data_size: other.len(),
+            }),
+            Some(evince_number) => {
+                tracing::debug!("[{}] Evincing data", self.name);
+                tracing::trace!("[{}] Evincing {} bytes", self.name, evince_number);
+                for (i, x) in (evince_number..self.cursor).enumerate() {
+                    self.buffer[i] = self.buffer[x];
+                }
+                self.cursor -= evince_number;
+                Ok(())
+            }
+        }
     }
 }
 

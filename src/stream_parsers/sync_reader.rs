@@ -7,7 +7,7 @@ use itertools::{unfold, Unfold};
 use crate::logic::parse_internal;
 use crate::parser_state::{ParsableState, SearchState};
 use crate::stream_parsers::ParserCommonFields;
-use crate::{debug, Buffer, Heuristic, ParserFunction, StreamParserError};
+use crate::{Buffer, Heuristic, ParserFunction, StreamParserError};
 
 type SteamUnfold<'a, R, B, O> =
     Unfold<ParserState<'a, R, B, O>, Logic<ParserState<'a, R, B, O>, O>>;
@@ -105,8 +105,8 @@ where
         // Eviction de donnée
 
         loop {
-            // x.i += 1;
-            // if x.i > 20 {
+            // x.common.i += 1;
+            // if x.common.i > 1500 {
             //     return None;
             // }
 
@@ -114,15 +114,15 @@ where
             // ask for or if the work_buffer is empty
             let full = x.common.work_buffer.len() - x.common.cursor;
             if let ((_, ParsableState::NeedMoreData), _) | (_, 0) = (&x.common.state, full) {
-                x.common.work_buffer.reset();
-                x.common.cursor = 0;
+                tracing::trace!("Current cursor {}", x.common.cursor);
+                if x.common.cursor != 0 {
+                    x.common
+                        .work_buffer
+                        .evince(Some(x.common.cursor), "".as_bytes())
+                        .unwrap();
+                }
+
                 tracing::debug!("Asking for more data");
-
-                tracing::trace!(
-                    "Work buffer content {}",
-                    debug!(&x.common.work_buffer.get_write_buffer())
-                );
-
                 tracing::trace!(
                     "Work buffer len {}",
                     &x.common.work_buffer.get_write_buffer().len()
@@ -134,10 +134,16 @@ where
 
                 match size {
                     Err(err) => return Some(Err(err.into())),
+                    Ok(0) if x.common.work_buffer.get_write_buffer().is_empty() => {
+                        return Some(Err(StreamParserError::ExceededBufferUnknownSize {
+                            buffer_size: x.common.work_buffer.len(),
+                        }))
+                    }
                     Ok(0) => return None,
                     Ok(size) => {
                         x.common.state.1 = ParsableState::MaybeParsable;
-                        x.common.work_buffer.incr_cursor(size)
+                        x.common.work_buffer.incr_cursor(size);
+                        x.common.cursor = 0;
                     }
                 }
             }
@@ -174,26 +180,28 @@ mod tests {
     use utils::parsers::{parse_data, start_group_parenthesis};
 
     use crate::buffers::preallocated::BufferPreallocated;
-    use crate::{Heuristic, StartGroup};
+    use crate::{Heuristic, StartGroup, StreamParserError};
 
     use super::StreamParser;
 
-    #[test]
+    #[test_pretty_log::test]
     fn test_parse_with_reader() {
-        let data = b"noise(1,a,3,4)###(2,5)".as_bytes();
-        //let it = Source::new(data).with_chunk_size(2);
-        //let it = vec![b"noise(1,2,3,4)".as_bytes()].into_iter();
-        let mut work_buffer = BufferPreallocated::new(10).with_name("work buffer");
+        let data = b"noise(1,5,3,4)###(2,5)(1,88,56,42,78,5)".as_bytes();
+        let mut work_buffer = BufferPreallocated::new(20).with_name("work buffer");
         let heuristic = Heuristic::SearchGroup(StartGroup {
             parser: start_group_parenthesis,
             start_character: b"(",
         });
 
-        let stream = StreamParser::new(data, &mut work_buffer, parse_data, Heuristic::Increment);
+        let stream = StreamParser::new(data, &mut work_buffer, parse_data, heuristic);
 
         for x in stream {
             match x {
                 Ok(data) => println!("Data : {:?}", data),
+                Err(error @ StreamParserError::ExceededBufferUnknownSize { .. }) => {
+                    eprintln!("Unrecoverable Error {}", error);
+                    break;
+                }
                 Err(err) => println!("Error: {}", err),
             }
         }

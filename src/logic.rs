@@ -2,11 +2,11 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::io::Read;
 
-use crate::{DataSource, debug};
 use crate::errors::StreamParserError;
 use crate::heuristic::Heuristic;
 use crate::parser_state::{ParsableState, ParserState, SearchState};
 use crate::traits::{Buffer, ParserFunction};
+use crate::{debug, DataSource};
 
 pub(crate) type Logic<St, R> = Box<dyn FnMut(&mut St) -> Option<Result<R, StreamParserError>>>;
 

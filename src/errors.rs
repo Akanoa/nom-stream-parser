@@ -19,6 +19,8 @@ pub enum StreamParserError {
         buffer_size: usize,
         data_size: usize,
     },
+    #[error("Buffer overflow : buffer size {buffer_size}")]
+    ExceededBufferUnknownSize { buffer_size: usize },
 }
 
 impl From<nom::Err<Error<&[u8]>>> for StreamParserError {
