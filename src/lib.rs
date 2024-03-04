@@ -1,5 +1,3 @@
-#![doc = include_str!("README.md")]
-
 use std::fmt::Debug;
 use std::io::Read;
 
