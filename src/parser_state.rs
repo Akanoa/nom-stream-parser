@@ -1,7 +1,9 @@
 use std::cell::RefCell;
-use std::ops::{Deref, DerefMut};
-use crate::search_group::Heuristic;
+use std::io::Read;
+
+use crate::heuristic::Heuristic;
 use crate::traits::{Buffer, ParserFunction};
+use crate::DataSource;
 
 /// Define the decision of the master parser at previous iteration
 #[derive(Debug)]
@@ -21,15 +23,14 @@ pub(crate) enum SearchState {
     StartFound,
 }
 
-pub(crate) struct ParserState<'a, I, B, R>
-    where
-        I: Iterator<Item = &'a [u8]>,
-        B: Buffer,
+pub(crate) struct ParserState<'a, I, B, R, O>
+where
+    I: Iterator<Item = &'a [u8]>,
+    R: Read,
+    B: Buffer,
 {
     /// Iterated data
-    pub iterator: I,
-    /// Buffer used when data must be accumulated
-    pub save_buffer: &'a mut B,
+    pub data_source: DataSource<'a, I, R>,
     /// Parsed buffer
     pub work_buffer: &'a mut B,
     /// Define both whether a new group must be searched
@@ -41,7 +42,7 @@ pub(crate) struct ParserState<'a, I, B, R>
     pub cursor: usize,
     /// The master used to generate parsing decision
     /// and result data yielded by stream parser
-    pub parser: ParserFunction<R>,
+    pub parser: ParserFunction<O>,
     ///
     pub heuristic: RefCell<Heuristic<'a>>,
     #[allow(unused)]
@@ -49,48 +50,22 @@ pub(crate) struct ParserState<'a, I, B, R>
     i: usize,
 }
 
-impl<'a, I, B, R> Deref for ParserState<'a, I, B, R>
-    where
-        B: Buffer,
-        I: Iterator<Item = &'a [u8]>,
-{
-    type Target = I;
-
-    fn deref(&self) -> &Self::Target {
-        &self.iterator
-    }
-}
-
-impl<'a, I, B, R> DerefMut for ParserState<'a, I, B, R>
-    where
-        I: Iterator<Item = &'a [u8]>,
-        B: Buffer,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.iterator
-    }
-}
-
-impl<'a, I, B, R> ParserState<'a, I, B, R>
-    where
-        I: Iterator<Item = &'a [u8]> + Iterator<Item = &'a [u8]>,
-        B: Buffer,
+impl<'a, I, B, R, O> ParserState<'a, I, B, R, O>
+where
+    I: Iterator<Item = &'a [u8]> + Iterator<Item = &'a [u8]>,
+    B: Buffer,
+    R: Read,
 {
     pub(crate) fn new(
-        save_buffer: &'a mut B,
         work_buffer: &'a mut B,
-        iterator: I,
-        parser: ParserFunction<R>,
+        data_source: DataSource<'a, I, R>,
+        parser: ParserFunction<O>,
         start_group: Heuristic<'a>,
     ) -> Self {
         Self {
-            iterator,
-            save_buffer,
+            data_source,
             work_buffer,
-            state: (
-                SearchState::SearchForStart,
-                ParsableState::NeedMoreData,
-            ),
+            state: (SearchState::SearchForStart, ParsableState::NeedMoreData),
             cursor: 0,
             parser,
             heuristic: RefCell::new(start_group),

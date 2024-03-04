@@ -6,10 +6,12 @@ use crate::debug;
 #[derive(Debug, PartialEq)]
 pub struct ExceedBuffer;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum StreamParserError {
     #[error("Parsing error occurred : {0}")]
     Nom(nom::Err<Error<String>>),
+    #[error("IO error : {0}")]
+    Io(#[from] std::io::Error),
     #[error(
         "Buffer overflow : trying append {data_size} data size into a buffer of size {buffer_size}"
     )]
@@ -17,6 +19,8 @@ pub enum StreamParserError {
         buffer_size: usize,
         data_size: usize,
     },
+    #[error("Buffer overflow : buffer size {buffer_size}")]
+    ExceededBufferUnknownSize { buffer_size: usize },
 }
 
 impl From<nom::Err<Error<&[u8]>>> for StreamParserError {

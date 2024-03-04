@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 use std::fmt::Debug;
+use std::io::Read;
 
-use crate::debug;
 use crate::errors::StreamParserError;
+use crate::heuristic::Heuristic;
 use crate::parser_state::{ParsableState, ParserState, SearchState};
-use crate::search_group::Heuristic;
 use crate::traits::{Buffer, ParserFunction};
+use crate::{debug, DataSource};
 
 pub(crate) type Logic<St, R> = Box<dyn FnMut(&mut St) -> Option<Result<R, StreamParserError>>>;
 
@@ -21,14 +22,14 @@ pub enum ReturnState<R> {
     Error(StreamParserError),
 }
 
-
-pub(crate) fn iteration_logic<'a, I, B, R>() -> Logic<ParserState<'a, I, B, R>, R>
-    where
-        I: Iterator<Item = &'a [u8]>,
-        B: Buffer,
-        R: Debug,
+pub(crate) fn iteration_logic<'a, I, B, R, O>() -> Logic<ParserState<'a, I, B, R, O>, O>
+where
+    I: Iterator<Item = &'a [u8]>,
+    R: Read,
+    B: Buffer,
+    O: Debug,
 {
-    Box::new(|x: &mut ParserState<'a, I, B, R>| {
+    Box::new(|x: &mut ParserState<'a, I, B, R, O>| {
         tracing::info!("New next() call");
         tracing::debug!("At next() call state : {:?}", x.state);
         tracing::trace!("Cursor: {}", x.cursor);
@@ -47,70 +48,103 @@ pub(crate) fn iteration_logic<'a, I, B, R>() -> Logic<ParserState<'a, I, B, R>, 
             if let ((_, ParsableState::NeedMoreData), _) | (_, 0) = (&x.state, current_len) {
                 tracing::debug!("Asking for more data");
 
-                let data = x.iterator.next();
+                let mut empty = false;
 
-                if let Some(data) = data {
-                    tracing::trace!("New data : {}", debug!(data));
-                    let eviction = x.work_buffer.append(data, Some(x.cursor)).unwrap();
-                    tracing::debug!("After append work buffer");
-                    if eviction {
-                        x.cursor = 0;
+                match &mut x.data_source {
+                    DataSource::Iterator(iterator) => {
+                        let data = iterator.next();
+                        if let Some(data) = data {
+                            tracing::trace!("New data : {}", debug!(data));
+                            let eviction = x.work_buffer.append(data, Some(x.cursor));
+                            match eviction {
+                                Err(err) => return Some(Err(err)),
+                                Ok(true) => {
+                                    x.cursor = 0;
+                                }
+                                _ => {}
+                            };
+                            // The work buffer can be parsed now
+                            x.state.1 = ParsableState::MaybeParsable;
+                        } else {
+                            empty = true
+                        }
                     }
-                    // The work buffer can be parsed now
-                    x.state.1 = ParsableState::MaybeParsable;
-                } else {
-                    if x.save_buffer.is_empty() {
-                        tracing::trace!("No more data can be yield and save buffer empty");
-                        return None;
-                    }
+                    DataSource::Reader(reader) => {
+                        let size = reader.read(&mut x.work_buffer[x.cursor..]);
 
-                    if x.heuristic.borrow_mut().prevent_infinite_loop(x.save_buffer) {
-                        return None
+                        match size {
+                            Err(err) => return Some(Err(err.into())),
+                            Ok(0) => empty = true,
+                            Ok(size) => x.work_buffer.incr_cursor(size),
+                        }
                     }
+                }
+
+                if empty {
+                    return None;
                 }
             }
 
-            tracing::debug!("Parsing work buffer");
-
-            let return_state = parse_internal(
-                x.save_buffer,
+            let parse_internal_result = parse_internal(
                 x.work_buffer,
                 &mut x.state,
                 &mut x.cursor,
                 x.parser,
                 &x.heuristic,
-            )
-                .unwrap();
+            );
 
-            match return_state {
-                ReturnState::NeedMoreData => x.state.1 = ParsableState::NeedMoreData,
-                ReturnState::Data(data) => {
-                    x.state.1 = ParsableState::MaybeParsable;
-                    return Some(Ok(data));
-                }
-                ReturnState::Error(err) => {
-                    tracing::debug!("Yield an error");
-                    return Some(Err(err));
-                }
+            match parse_internal_result {
+                Ok(Some(data)) => return Some(Ok(data)),
+                Err(err) => return Some(Err(err)),
+                _ => {}
             }
         }
     })
 }
 
+pub fn parse_internal<B: Buffer, R: Debug>(
+    work_buffer: &mut B,
+    state: &mut (SearchState, ParsableState),
+    cursor: &mut usize,
+    parser: ParserFunction<R>,
+    heuristic: &RefCell<Heuristic>,
+) -> Result<Option<R>, StreamParserError> {
+    tracing::debug!("Parsing work buffer");
 
-fn parse_internal<'b, B: Buffer, R: Debug>(
-    save_buffer: &mut B,
-    work_buffer: &'b mut B,
+    let return_state = parsing_logic(work_buffer, state, cursor, parser, heuristic);
+
+    match return_state {
+        Ok(ReturnState::NeedMoreData) => {
+            state.1 = ParsableState::NeedMoreData;
+            Ok(None)
+        }
+        Ok(ReturnState::Data(data)) => {
+            state.1 = ParsableState::MaybeParsable;
+            Ok(Some(data))
+        }
+        Ok(ReturnState::Error(err)) => {
+            tracing::debug!("Yield an error");
+            Err(err)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+fn parsing_logic<B: Buffer, R: Debug>(
+    work_buffer: &mut B,
     state: &mut (SearchState, ParsableState),
     cursor: &mut usize,
     parser: ParserFunction<R>,
     start_group: &RefCell<Heuristic>,
 ) -> Result<ReturnState<R>, StreamParserError>
-    where
+where
 {
-
     if let (SearchState::SearchForStart, _) = state {
-        if let Some(return_state) = start_group.borrow_mut().start_group(save_buffer, work_buffer, state, cursor)? {
+        if let Some(return_state) =
+            start_group
+                .borrow_mut()
+                .start_group(work_buffer, state, cursor)?
+        {
             return Ok(return_state);
         }
     }
@@ -134,9 +168,9 @@ fn parse_internal<'b, B: Buffer, R: Debug>(
             );
             state.0 = SearchState::SearchForStart;
 
-            if work_buffer[*cursor..].is_empty() {
-                save_buffer.clear()
-            }
+            // if work_buffer[*cursor..].is_empty() {
+            //     save_buffer.clear()
+            // }
 
             return Ok(ReturnState::Data(data));
         }
@@ -144,8 +178,8 @@ fn parse_internal<'b, B: Buffer, R: Debug>(
             tracing::debug!("Not enough data to decide");
             tracing::trace!("In {}", debug!(input));
             tracing::debug!("Asking for more data on incomplete data");
-            save_buffer.clear();
-            save_buffer.append(input, Some(*cursor))?;
+            //save_buffer.clear();
+            //save_buffer.append(input, Some(*cursor))?;
         }
         Err(err) => {
             tracing::trace!(
@@ -162,12 +196,9 @@ fn parse_internal<'b, B: Buffer, R: Debug>(
 
             let old_input = &work_buffer[*cursor..];
 
+            *cursor += 1;
 
-                *cursor += 1;
-
-
-
-            return Ok(ReturnState::Error(err.map_input(|_|old_input).into()));
+            return Ok(ReturnState::Error(err.map_input(|_| old_input).into()));
         }
     }
     Ok(ReturnState::NeedMoreData)

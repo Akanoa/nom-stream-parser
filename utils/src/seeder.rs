@@ -232,6 +232,15 @@ where
     closure(Source::new(&data).with_chunk_size(chunk_size))
 }
 
+pub fn raw_data<F>(config: &SeederConfig, seed: u64, mut closure: F)
+where
+    F: FnMut(&[u8]),
+{
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
+    let (data, _) = config.generate(&mut rng);
+    closure(&data)
+}
+
 fn number_to_ascii(num: &u8) -> Vec<u8> {
     let num_str = format!("{}", num);
     num_str.bytes().collect::<Vec<u8>>()
