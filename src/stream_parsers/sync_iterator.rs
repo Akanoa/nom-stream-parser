@@ -3,38 +3,36 @@ use std::fmt::Debug;
 
 use itertools::{unfold, Unfold};
 
+use crate::heuristic::Heuristic;
 use crate::logic::parse_internal;
 use crate::parser_state::{ParsableState, SearchState};
 use crate::stream_parsers::ParserCommonFields;
-use crate::{debug, Buffer, Heuristic, ParserFunction, StreamParserError};
+use crate::{debug, Buffer, ParserFunction, StreamParserError};
 
-type SteamUnfold<'a, I, B, O> =
-    Unfold<ParserState<'a, I, B, O>, Logic<ParserState<'a, I, B, O>, O>>;
+type SteamUnfold<'a, I, B, O, H> =
+    Unfold<ParserState<'a, I, B, O, H>, Logic<ParserState<'a, I, B, O, H>, O>>;
 
 type Logic<St, O> = Box<dyn FnMut(&mut St) -> Option<Result<O, StreamParserError>>>;
 
-struct ParserState<'a, I, B, O>
+struct ParserState<'a, I, B, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
+    H: Heuristic,
     B: Buffer,
 {
     /// Iterated data
     pub iterator: I,
     /// Buffer used when data must be accumulated
-    pub common: ParserCommonFields<'a, B, O>,
+    pub common: ParserCommonFields<'a, B, O, H>,
 }
 
-impl<'a, I, B, O> ParserState<'a, I, B, O>
+impl<'a, I, B, O, H> ParserState<'a, I, B, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
+    H: Heuristic,
     B: Buffer,
 {
-    fn new(
-        work_buffer: &'a mut B,
-        iterator: I,
-        parser: ParserFunction<O>,
-        start_group: Heuristic<'a>,
-    ) -> Self {
+    fn new(work_buffer: &'a mut B, iterator: I, parser: ParserFunction<O>, heuristic: H) -> Self {
         Self {
             iterator,
             common: ParserCommonFields {
@@ -42,33 +40,35 @@ where
                 state: (SearchState::SearchForStart, ParsableState::NeedMoreData),
                 cursor: 0,
                 parser,
-                heuristic: RefCell::new(start_group),
+                heuristic: RefCell::new(heuristic),
                 i: 0,
             },
         }
     }
 }
 
-pub struct StreamParser<'a, I, B, O>
+pub struct StreamParser<'a, I, B, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
-    stream: SteamUnfold<'a, I, B, O>,
+    stream: SteamUnfold<'a, I, B, O, H>,
 }
 
-impl<'a, I, B, O> StreamParser<'a, I, B, O>
+impl<'a, I, B, O, H> StreamParser<'a, I, B, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
     pub fn new(
         iterator: I,
         work_buffer: &'a mut B,
         parser: ParserFunction<O>,
-        heuristic: Heuristic<'a>,
+        heuristic: H,
     ) -> Self {
         let logic_state = ParserState::new(work_buffer, iterator, parser, heuristic);
 
@@ -77,10 +77,11 @@ where
     }
 }
 
-impl<'a, I, B, O> Iterator for StreamParser<'a, I, B, O>
+impl<'a, I, B, O, H> Iterator for StreamParser<'a, I, B, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
     type Item = Result<O, StreamParserError>;
@@ -90,13 +91,14 @@ where
     }
 }
 
-fn iteration_logic<'a, I, B, O>() -> crate::logic::Logic<ParserState<'a, I, B, O>, O>
+fn iteration_logic<'a, I, B, O, H>() -> crate::logic::Logic<ParserState<'a, I, B, O, H>, O>
 where
     I: Iterator<Item = &'a [u8]>,
+    H: Heuristic,
     B: Buffer,
     O: Debug,
 {
-    Box::new(|x: &mut ParserState<'a, I, B, O>| {
+    Box::new(|x: &mut ParserState<'a, I, B, O, H>| {
         tracing::info!("New next() call");
         tracing::debug!("At next() call state : {:?}", x.common.state);
         tracing::trace!("Cursor: {}", x.common.cursor);

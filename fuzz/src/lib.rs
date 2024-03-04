@@ -1,5 +1,5 @@
 use nom_stream_parser::{
-    Buffer, DataSource, Heuristic, StartGroup, StreamParser, StreamParserError,
+    Buffer, DataSource, EnumHeuristic, StartGroupByParser, StreamParser, StreamParserError,
 };
 use utils::parsers::{parse_data, start_group_parenthesis};
 use utils::source::Source;
@@ -9,7 +9,7 @@ pub fn parse<B: Buffer>(
     work_buffer: &mut B,
 ) -> Result<Vec<Vec<u8>>, StreamParserError> {
     let parser = parse_data;
-    let search_group_heuristic = StartGroup {
+    let search_group_heuristic = StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
     };
@@ -17,7 +17,7 @@ pub fn parse<B: Buffer>(
         DataSource::<_, &[u8]>::Iterator(source),
         work_buffer,
         parser,
-        Heuristic::SearchGroup(search_group_heuristic),
+        EnumHeuristic::SearchGroup(search_group_heuristic),
     );
     let result: Vec<Vec<u8>> = stream.filter_map(|x| x.ok()).collect();
     Ok(result)

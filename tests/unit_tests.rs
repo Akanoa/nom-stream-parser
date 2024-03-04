@@ -1,6 +1,6 @@
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::{DataSource, StreamParser};
-use nom_stream_parser::{Heuristic, StartGroup};
+use nom_stream_parser::{EnumHeuristic, StartGroupByParser};
 use utils::parsers::{parse_data, start_group_parenthesis};
 use utils::source::Source;
 
@@ -21,7 +21,7 @@ fn test_stream_parser() {
     let mut save_buffer = BufferPreallocated::new(40).with_name("save buffer");
     let mut work_buffer = BufferPreallocated::new(40).with_name("work buffer");
     let parser = parse_data;
-    let group_start = StartGroup {
+    let group_start = StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
     };
@@ -29,7 +29,7 @@ fn test_stream_parser() {
         DataSource::Iterator::<_, &[u8]>(source),
         &mut work_buffer,
         parser,
-        Heuristic::SearchGroup(group_start),
+        EnumHeuristic::SearchGroup(group_start),
     );
 
     let result = stream.flatten().collect::<Vec<Vec<u8>>>();
@@ -58,7 +58,7 @@ fn test_stream_parser_increment() {
         DataSource::Iterator::<_, &[u8]>(source),
         &mut work_buffer,
         parser,
-        Heuristic::Increment,
+        EnumHeuristic::Increment,
     );
 
     let result = stream.flatten().collect::<Vec<Vec<u8>>>();

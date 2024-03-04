@@ -1,12 +1,13 @@
-use nom::{AsBytes, character, IResult};
 use nom::bytes::streaming::tag;
 use nom::combinator::map_parser;
 use nom::multi::separated_list1;
 use nom::sequence::delimited;
+use nom::{character, AsBytes, IResult};
 
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;
-use nom_stream_parser::Heuristic;
+use nom_stream_parser::heuristic::Increment;
+use nom_stream_parser::EnumHeuristic;
 use utils::source::Source;
 
 fn parser(input: &[u8]) -> IResult<&[u8], Vec<u8>> {
@@ -40,7 +41,7 @@ fn by_structure() {
         parser,
         // This heuristic is quite simple, move by one character if the parser
         // failed at current position
-        Heuristic::Increment,
+        nom_stream_parser::heuristic::Increment,
     );
 
     println!("By structure");
@@ -67,7 +68,7 @@ fn by_builder() {
         .parser(parser)
         // This heuristic is quite simple, move by one character if the parser
         // failed at current position
-        .heuristic(Heuristic::Increment)
+        .heuristic(nom_stream_parser::heuristic::Increment)
         .work_buffer(&mut work_buffer)
         // Set the Iterator which be used as data source
         .iterator(source)
@@ -98,7 +99,7 @@ fn by_builder_heuristic_omitted() {
     let mut work_buffer = BufferPreallocated::new(20);
     // Source is a chunked iterator over slice
     let source = Source::new(data).with_chunk_size(4);
-    let stream = StreamParserBuilder::default()
+    let stream = StreamParserBuilder::<_, _, Increment>::default()
         .parser(parser)
         // The heuristic can be omitted, the default value is already Heuristic::Increment
         .work_buffer(&mut work_buffer)

@@ -7,7 +7,7 @@ use nom::{character, AsBytes, IResult};
 
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;
-use nom_stream_parser::{Heuristic, StartGroup};
+use nom_stream_parser::StartGroupByParser;
 
 fn parser(input: &[u8]) -> IResult<&[u8], Vec<u8>> {
     delimited(
@@ -37,10 +37,10 @@ fn by_structure() {
     let mut work_buffer = BufferPreallocated::new(20);
     // This heuristic try to found the start_character and
     // apply the parser defined to detect complex start group
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = StartGroupByParser {
         parser: start_group_complex,
         start_character: "%".as_bytes(),
-    });
+    };
     let stream = nom_stream_parser::stream_parsers::sync_reader::StreamParser::new(
         data,
         &mut work_buffer,
@@ -69,10 +69,10 @@ fn by_builder() {
 
     // This heuristic try to found the start_character and
     // apply the parser defined to detect complex start group
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = StartGroupByParser {
         parser: start_group_complex,
         start_character: "%".as_bytes(),
-    });
+    };
 
     let stream = StreamParserBuilder::default()
         .parser(parser)

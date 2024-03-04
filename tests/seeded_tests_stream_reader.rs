@@ -3,7 +3,7 @@ use rand_chacha::ChaCha8Rng;
 
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;
-use nom_stream_parser::{debug, Heuristic, StartGroup, StreamParserError};
+use nom_stream_parser::{debug, EnumHeuristic, StartGroupByParser, StreamParserError};
 use utils::parsers::{parse_data, start_group_parenthesis};
 use utils::seeder::SeederConfig;
 
@@ -20,7 +20,7 @@ fn failed_seed_585186476717703168() {
     //let source = Source::new(&data_to_parse).with_chunk_size(4096);
     let mut work_buffer = BufferPreallocated::new(1_048_576).with_name("work buffer");
 
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = EnumHeuristic::SearchGroup(StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
     });
@@ -67,7 +67,7 @@ fn failed_seed_585186476717703168x10() {
     //let source = Source::new(&data_to_parse).with_chunk_size(4096);
     let mut work_buffer = BufferPreallocated::new(1_048_576).with_name("work buffer");
 
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = EnumHeuristic::SearchGroup(StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
     });
@@ -113,7 +113,7 @@ fn failed_seed_42949672960() {
 
     let mut work_buffer = BufferPreallocated::new(1_048_576).with_name("work buffer");
 
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = EnumHeuristic::SearchGroup(StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
     });
