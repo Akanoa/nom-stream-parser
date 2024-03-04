@@ -9,7 +9,7 @@ use crate::{Buffer, ParserFunction};
 #[derive(Builder)]
 #[builder(pattern = "owned")]
 #[builder(build_fn(skip))]
-pub struct StreamParser<'a, B: Buffer, O: Debug, H: Heuristic = Increment> {
+pub struct StreamParser<'a, B: Buffer, O: Debug, H: Heuristic> {
     #[allow(unused)]
     work_buffer: &'a mut B,
     #[allow(unused)]
@@ -43,7 +43,7 @@ impl<'a, B: Buffer, O: Debug, H: Heuristic> StreamParserBuilder<'a, B, O, H> {
 
 #[derive(Builder)]
 #[builder(pattern = "owned")]
-pub struct StreamParserIterator<'a, B, I, O, H = Increment>
+pub struct StreamParserIterator<'a, B, I, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
     B: Buffer,
