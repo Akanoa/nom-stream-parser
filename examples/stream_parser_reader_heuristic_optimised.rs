@@ -74,10 +74,9 @@ fn by_builder() {
         start_character: "%".as_bytes(),
     };
 
-    let stream = StreamParserBuilder::default()
+    // Set the heuristic at the definition of the builder
+    let stream = StreamParserBuilder::with_heuristic(heuristic)
         .parser(parser)
-        // Set the heuristic
-        .heuristic(heuristic)
         .work_buffer(&mut work_buffer)
         // Set the Iterator which be used as data source
         .reader(data)

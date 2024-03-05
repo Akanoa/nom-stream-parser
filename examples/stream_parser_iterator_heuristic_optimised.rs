@@ -1,9 +1,9 @@
-use nom::{AsBytes, character, IResult};
 use nom::bytes::streaming::tag;
 use nom::character::complete::digit1;
 use nom::combinator::map_parser;
 use nom::multi::separated_list1;
 use nom::sequence::delimited;
+use nom::{character, AsBytes, IResult};
 
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;
@@ -79,10 +79,9 @@ fn by_builder() {
         start_character: "%".as_bytes(),
     };
 
-    let stream = StreamParserBuilder::default()
+    // Set the heuristic at the definition of the builder
+    let stream = StreamParserBuilder::with_heuristic(heuristic)
         .parser(parser)
-        // Set the heuristic
-        .heuristic(heuristic)
         .work_buffer(&mut work_buffer)
         // Set the Iterator which be used as data source
         .iterator(source)

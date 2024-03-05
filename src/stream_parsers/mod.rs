@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
 use crate::heuristic::Heuristic;
@@ -22,7 +21,7 @@ struct ParserCommonFields<'a, B, O, H: Heuristic> {
     /// and result data yielded by stream parser
     pub parser: ParserFunction<O>,
     ///
-    pub heuristic: RefCell<H>,
+    pub heuristic: H,
     #[allow(unused)]
     /// Used to debug the system when it comes to infinite loop
     i: usize,

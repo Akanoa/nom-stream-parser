@@ -1,8 +1,8 @@
-use nom::{AsBytes, character, IResult};
 use nom::bytes::streaming::tag;
 use nom::combinator::map_parser;
 use nom::multi::separated_list1;
 use nom::sequence::delimited;
+use nom::{character, AsBytes, IResult};
 
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;
@@ -23,8 +23,6 @@ fn main() {
     by_structure();
     #[cfg(feature = "builder")]
     by_builder();
-    #[cfg(feature = "builder")]
-    by_builder_heuristic_omitted();
 }
 
 fn by_structure() {
@@ -61,9 +59,6 @@ fn by_builder() {
     let mut work_buffer = BufferPreallocated::new(20);
     let stream = StreamParserBuilder::default()
         .parser(parser)
-        // This heuristic is quite simple, move by one character if the parser
-        // failed at current position
-        .heuristic(Increment)
         .work_buffer(&mut work_buffer)
         // Set the Reader which be used as data source
         .reader(data)
@@ -75,36 +70,6 @@ fn by_builder() {
         .stream();
 
     println!("By builder");
-
-    for x in stream {
-        match x {
-            Ok(data) => println!("Data : {:?}", data),
-            Err(err) => println!("Error: {}", err),
-        }
-    }
-
-    println!("-----------------------------");
-}
-
-#[cfg(feature = "builder")]
-fn by_builder_heuristic_omitted() {
-    let data = b"noise(1,4,3,4)###(2,5)".as_bytes();
-    // The work_buffer is used both to parse data and to accumulate partials.
-    // It must be sized according to your parsed data
-    let mut work_buffer = BufferPreallocated::new(20);
-    let stream = StreamParserBuilder::<_, _, Increment>::default()
-        .parser(parser)
-        // The heuristic can be omitted, the default value is already Heuristic::Increment
-        .work_buffer(&mut work_buffer)
-        // Set the Iterator which be used as data source
-        .reader(data)
-        .build()
-        // The builder can fail if field is missing
-        .unwrap()
-        // Get the stream from StreamParser
-        .stream();
-
-    println!("By builder heuristic omitted");
 
     for x in stream {
         match x {

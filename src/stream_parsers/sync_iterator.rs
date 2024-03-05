@@ -40,7 +40,7 @@ where
                 state: (SearchState::SearchForStart, ParsableState::NeedMoreData),
                 cursor: 0,
                 parser,
-                heuristic: RefCell::new(heuristic),
+                heuristic,
                 i: 0,
             },
         }
@@ -140,7 +140,7 @@ where
                 &mut x.common.state,
                 &mut x.common.cursor,
                 x.common.parser,
-                &x.common.heuristic,
+                &mut x.common.heuristic,
             );
 
             match parse_internal_result {

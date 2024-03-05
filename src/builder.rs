@@ -9,24 +9,26 @@ use crate::{Buffer, ParserFunction};
 #[derive(Builder)]
 #[builder(pattern = "owned")]
 #[builder(build_fn(skip))]
+#[builder(custom_constructor)]
 pub struct StreamParser<'a, B: Buffer, O: Debug, H: Heuristic> {
     #[allow(unused)]
     work_buffer: &'a mut B,
     #[allow(unused)]
     parser: ParserFunction<O>,
     #[allow(unused)]
+    #[builder(private)]
     heuristic: H,
 }
 
-impl<'a, B: Buffer, O: Debug> StreamParserBuilder<'a, B, O, Increment> {
-    pub fn new() -> Self {
+impl<'a, B: Buffer, O: Debug> Default for StreamParserBuilder<'a, B, O, Increment> {
+    fn default() -> Self {
         Self::with_heuristic(Increment)
     }
 }
 
 impl<'a, B: Buffer, O: Debug, H: Heuristic> StreamParserBuilder<'a, B, O, H> {
     pub fn with_heuristic(heuristic: H) -> Self {
-        Self::default().heuristic(heuristic)
+        Self::create_empty().heuristic(heuristic)
     }
 
     pub fn reader<R: Read>(self, reader: R) -> StreamParserReaderBuilder<'a, B, R, O, H> {
@@ -63,6 +65,7 @@ where
     pub iterator: I,
     pub work_buffer: &'a mut B,
     pub parser: ParserFunction<O>,
+    #[builder(private)]
     pub heuristic: H,
 }
 
@@ -78,6 +81,7 @@ where
     pub reader: R,
     pub work_buffer: &'a mut B,
     pub parser: ParserFunction<O>,
+    #[builder(private)]
     pub heuristic: H,
 }
 
@@ -150,10 +154,9 @@ mod tests {
                     tag(")"),
                 )(input)
             }
-            let stream = StreamParserBuilder::default()
+            let stream = StreamParserBuilder::with_heuristic(heuristic)
                 .work_buffer(&mut work_buffer)
                 .parser(parser)
-                .heuristic(heuristic)
                 .iterator(it)
                 .build()
                 .unwrap()
@@ -174,11 +177,10 @@ mod tests {
                 start_character: b"(",
             };
 
-            let stream = StreamParserBuilder::default()
+            let stream = StreamParserBuilder::with_heuristic(heuristic)
                 .work_buffer(&mut work_buffer)
                 .parser(parser)
                 .reader(data)
-                .heuristic(heuristic)
                 .build()
                 .unwrap()
                 .stream();

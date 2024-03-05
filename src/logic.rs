@@ -26,7 +26,7 @@ pub fn parse_internal<B: Buffer, R: Debug, H: Heuristic>(
     state: &mut (SearchState, ParsableState),
     cursor: &mut usize,
     parser: ParserFunction<R>,
-    heuristic: &RefCell<H>,
+    heuristic: &mut H,
 ) -> Result<Option<R>, StreamParserError> {
     tracing::debug!("Parsing work buffer");
 
@@ -54,12 +54,12 @@ fn parsing_logic<B: Buffer, R: Debug, H: Heuristic>(
     state: &mut (SearchState, ParsableState),
     cursor: &mut usize,
     parser: ParserFunction<R>,
-    start_group: &RefCell<H>,
+    heuristic: &mut H,
 ) -> Result<ReturnState<R>, StreamParserError>
 where
 {
     if let (SearchState::SearchForStart, _) = state {
-        if let Some(return_state) = start_group.borrow_mut().apply(work_buffer, state, cursor)? {
+        if let Some(return_state) = heuristic.apply(work_buffer, state, cursor)? {
             return Ok(return_state);
         }
     }

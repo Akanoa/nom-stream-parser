@@ -93,7 +93,6 @@ impl<'a> Heuristic for StartGroupByParser<'a> {
                         tracing::debug!("No group start found");
                         tracing::trace!("In {}", debug!(input));
                         tracing::debug!("Cleaning buffers");
-                        //save_buffer.clear();
                         work_buffer.clear();
                         *cursor = 0;
                         tracing::trace!("Asking for more data");
