@@ -18,7 +18,17 @@ pub struct StreamParser<'a, B: Buffer, O: Debug, H: Heuristic> {
     heuristic: H,
 }
 
+impl<'a, B: Buffer, O: Debug> StreamParserBuilder<'a, B, O, Increment> {
+    pub fn new() -> Self {
+        Self::with_heuristic(Increment)
+    }
+}
+
 impl<'a, B: Buffer, O: Debug, H: Heuristic> StreamParserBuilder<'a, B, O, H> {
+    pub fn with_heuristic(heuristic: H) -> Self {
+        Self::default().heuristic(heuristic)
+    }
+
     pub fn reader<R: Read>(self, reader: R) -> StreamParserReaderBuilder<'a, B, R, O, H> {
         StreamParserReaderBuilder {
             reader: Some(reader),
