@@ -1,41 +1,38 @@
-use std::cell::RefCell;
 use std::fmt::Debug;
 use std::io::Read;
 
 use itertools::{unfold, Unfold};
 
+use crate::heuristic::Heuristic;
 use crate::logic::parse_internal;
 use crate::parser_state::{ParsableState, SearchState};
 use crate::stream_parsers::ParserCommonFields;
-use crate::{Buffer, Heuristic, ParserFunction, StreamParserError};
+use crate::{Buffer, ParserFunction, StreamParserError};
 
-type SteamUnfold<'a, R, B, O> =
-    Unfold<ParserState<'a, R, B, O>, Logic<ParserState<'a, R, B, O>, O>>;
+type SteamUnfold<'a, R, B, O, H> =
+    Unfold<ParserState<'a, R, B, O, H>, Logic<ParserState<'a, R, B, O, H>, O>>;
 
 type Logic<St, O> = Box<dyn FnMut(&mut St) -> Option<Result<O, StreamParserError>>>;
 
-struct ParserState<'a, R, B, O>
+struct ParserState<'a, R, B, O, H>
 where
     R: Read,
     B: Buffer,
+    H: Heuristic,
 {
     /// Iterated data
     pub reader: R,
     /// Buffer used when data must be accumulated
-    pub common: ParserCommonFields<'a, B, O>,
+    pub common: ParserCommonFields<'a, B, O, H>,
 }
 
-impl<'a, R, B, O> ParserState<'a, R, B, O>
+impl<'a, R, B, O, H> ParserState<'a, R, B, O, H>
 where
     R: Read,
     B: Buffer,
+    H: Heuristic,
 {
-    fn new(
-        work_buffer: &'a mut B,
-        reader: R,
-        parser: ParserFunction<O>,
-        start_group: Heuristic<'a>,
-    ) -> Self {
+    fn new(work_buffer: &'a mut B, reader: R, parser: ParserFunction<O>, heuristic: H) -> Self {
         Self {
             reader,
             common: ParserCommonFields {
@@ -43,34 +40,31 @@ where
                 state: (SearchState::SearchForStart, ParsableState::NeedMoreData),
                 cursor: 0,
                 parser,
-                heuristic: RefCell::new(start_group),
+                heuristic,
                 i: 0,
             },
         }
     }
 }
 
-pub struct StreamParser<'a, R, B, O>
+pub struct StreamParser<'a, R, B, O, H>
 where
     R: Read,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
-    stream: SteamUnfold<'a, R, B, O>,
+    stream: SteamUnfold<'a, R, B, O, H>,
 }
 
-impl<'a, R, B, O> StreamParser<'a, R, B, O>
+impl<'a, R, B, O, H> StreamParser<'a, R, B, O, H>
 where
     R: Read,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
-    pub fn new(
-        reader: R,
-        work_buffer: &'a mut B,
-        parser: ParserFunction<O>,
-        heuristic: Heuristic<'a>,
-    ) -> Self {
+    pub fn new(reader: R, work_buffer: &'a mut B, parser: ParserFunction<O>, heuristic: H) -> Self {
         let logic_state = ParserState::new(work_buffer, reader, parser, heuristic);
 
         let stream = unfold(logic_state, iteration_logic());
@@ -78,10 +72,11 @@ where
     }
 }
 
-impl<'a, R, B, O> Iterator for StreamParser<'a, R, B, O>
+impl<'a, R, B, O, H> Iterator for StreamParser<'a, R, B, O, H>
 where
     R: Read,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
     type Item = Result<O, StreamParserError>;
@@ -91,13 +86,14 @@ where
     }
 }
 
-fn iteration_logic<'a, R, B, O>() -> crate::logic::Logic<ParserState<'a, R, B, O>, O>
+fn iteration_logic<'a, R, B, O, H>() -> crate::logic::Logic<ParserState<'a, R, B, O, H>, O>
 where
     R: Read,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
-    Box::new(|x: &mut ParserState<'a, R, B, O>| {
+    Box::new(|x: &mut ParserState<'a, R, B, O, H>| {
         tracing::info!("New next() call");
         tracing::debug!("At next() call state : {:?}", x.common.state);
         tracing::trace!("Cursor: {}", x.common.cursor);
@@ -153,7 +149,7 @@ where
                 &mut x.common.state,
                 &mut x.common.cursor,
                 x.common.parser,
-                &x.common.heuristic,
+                &mut x.common.heuristic,
             );
 
             match parse_internal_result {
@@ -180,7 +176,7 @@ mod tests {
     use utils::parsers::{parse_data, start_group_parenthesis};
 
     use crate::buffers::preallocated::BufferPreallocated;
-    use crate::{Heuristic, StartGroup, StreamParserError};
+    use crate::{StartGroupByParser, StreamParserError};
 
     use super::StreamParser;
 
@@ -188,10 +184,11 @@ mod tests {
     fn test_parse_with_reader() {
         let data = b"noise(1,5,3,4)###(2,5)(1,88,56,42,78,5)".as_bytes();
         let mut work_buffer = BufferPreallocated::new(20).with_name("work buffer");
-        let heuristic = Heuristic::SearchGroup(StartGroup {
+
+        let heuristic = StartGroupByParser {
             parser: start_group_parenthesis,
             start_character: b"(",
-        });
+        };
 
         let stream = StreamParser::new(data, &mut work_buffer, parse_data, heuristic);
 

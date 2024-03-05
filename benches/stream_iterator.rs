@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use bench_macros::generate_bench_iterator;
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
-use nom_stream_parser::{Buffer, Heuristic, StartGroup, StreamParserError};
+use nom_stream_parser::{Buffer, StartGroupByParser, StreamParserError};
 use utils::parsers::{parse_data, start_group_parenthesis};
 use utils::seeder::{source_data, SeederConfig};
 use utils::source::Source;
@@ -12,7 +12,7 @@ pub fn parse<B: Buffer>(
     work_buffer: &mut B,
 ) -> Result<Vec<Vec<u8>>, StreamParserError> {
     let parser = parse_data;
-    let search_group_heuristic = StartGroup {
+    let search_group_heuristic = StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
     };
@@ -20,7 +20,7 @@ pub fn parse<B: Buffer>(
         source,
         work_buffer,
         parser,
-        Heuristic::SearchGroup(search_group_heuristic),
+        search_group_heuristic,
     );
     let result: Vec<Vec<u8>> = stream.filter_map(|x| x.ok()).collect();
     Ok(result)

@@ -3,23 +3,35 @@ use std::io::Read;
 
 use derive_builder::Builder;
 
-use crate::{Buffer, Heuristic, ParserFunction};
+use crate::heuristic::{Heuristic, Increment};
+use crate::{Buffer, ParserFunction};
 
 #[derive(Builder)]
 #[builder(pattern = "owned")]
 #[builder(build_fn(skip))]
-pub struct StreamParser<'a, B: Buffer, O: Debug> {
+#[builder(custom_constructor)]
+pub struct StreamParser<'a, B: Buffer, O: Debug, H: Heuristic> {
     #[allow(unused)]
     work_buffer: &'a mut B,
     #[allow(unused)]
     parser: ParserFunction<O>,
-    #[builder(default = "Heuristic::Increment")]
     #[allow(unused)]
-    heuristic: Heuristic<'a>,
+    #[builder(private)]
+    heuristic: H,
 }
 
-impl<'a, B: Buffer, O: Debug> StreamParserBuilder<'a, B, O> {
-    pub fn reader<R: Read>(self, reader: R) -> StreamParserReaderBuilder<'a, B, R, O> {
+impl<'a, B: Buffer, O: Debug> Default for StreamParserBuilder<'a, B, O, Increment> {
+    fn default() -> Self {
+        Self::with_heuristic(Increment)
+    }
+}
+
+impl<'a, B: Buffer, O: Debug, H: Heuristic> StreamParserBuilder<'a, B, O, H> {
+    pub fn with_heuristic(heuristic: H) -> Self {
+        Self::create_empty().heuristic(heuristic)
+    }
+
+    pub fn reader<R: Read>(self, reader: R) -> StreamParserReaderBuilder<'a, B, R, O, H> {
         StreamParserReaderBuilder {
             reader: Some(reader),
             work_buffer: self.work_buffer,
@@ -31,7 +43,7 @@ impl<'a, B: Buffer, O: Debug> StreamParserBuilder<'a, B, O> {
     pub fn iterator<I: Iterator<Item = &'a [u8]>>(
         self,
         iterator: I,
-    ) -> StreamParserIteratorBuilder<'a, B, I, O> {
+    ) -> StreamParserIteratorBuilder<'a, B, I, O, H> {
         StreamParserIteratorBuilder {
             iterator: Some(iterator),
             work_buffer: self.work_buffer,
@@ -43,41 +55,44 @@ impl<'a, B: Buffer, O: Debug> StreamParserBuilder<'a, B, O> {
 
 #[derive(Builder)]
 #[builder(pattern = "owned")]
-pub struct StreamParserIterator<'a, B, I, O>
+pub struct StreamParserIterator<'a, B, I, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
     pub iterator: I,
     pub work_buffer: &'a mut B,
     pub parser: ParserFunction<O>,
-    #[builder(default = "Heuristic::Increment")]
-    pub heuristic: Heuristic<'a>,
+    #[builder(private)]
+    pub heuristic: H,
 }
 
 #[derive(Builder)]
 #[builder(pattern = "owned")]
-pub struct StreamParserReader<'a, B, R, O>
+pub struct StreamParserReader<'a, B, R, O, H = Increment>
 where
     R: Read,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
     pub reader: R,
     pub work_buffer: &'a mut B,
     pub parser: ParserFunction<O>,
-    #[builder(default = "Heuristic::Increment")]
-    pub heuristic: Heuristic<'a>,
+    #[builder(private)]
+    pub heuristic: H,
 }
 
-impl<'a, B, I, O> StreamParserIterator<'a, B, I, O>
+impl<'a, B, I, O, H> StreamParserIterator<'a, B, I, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
-    pub fn stream(self) -> crate::stream_parsers::sync_iterator::StreamParser<'a, I, B, O> {
+    pub fn stream(self) -> crate::stream_parsers::sync_iterator::StreamParser<'a, I, B, O, H> {
         crate::stream_parsers::sync_iterator::StreamParser::new(
             self.iterator,
             self.work_buffer,
@@ -87,13 +102,14 @@ where
     }
 }
 
-impl<'a, B, R, O> StreamParserReader<'a, B, R, O>
+impl<'a, B, R, O, H> StreamParserReader<'a, B, R, O, H>
 where
     R: Read,
     B: Buffer,
+    H: Heuristic,
     O: Debug,
 {
-    pub fn stream(self) -> crate::stream_parsers::sync_reader::StreamParser<'a, R, B, O> {
+    pub fn stream(self) -> crate::stream_parsers::sync_reader::StreamParser<'a, R, B, O, H> {
         crate::stream_parsers::sync_reader::StreamParser::new(
             self.reader,
             self.work_buffer,
@@ -116,7 +132,7 @@ mod tests {
 
     use crate::buffers::preallocated::BufferPreallocated;
     use crate::builder::StreamParserBuilder;
-    use crate::{Buffer, Heuristic, StartGroup};
+    use crate::{Buffer, StartGroupByParser};
 
     #[test]
     fn test_builder() {
@@ -124,10 +140,10 @@ mod tests {
             let data = b"noise(1,4,3,4)###(2,5)".as_bytes();
             let it = Source::new(data).with_chunk_size(4);
             let mut work_buffer = BufferPreallocated::new(20);
-            let heuristic = Heuristic::SearchGroup(StartGroup {
+            let heuristic = StartGroupByParser {
                 parser: start_group_parenthesis,
                 start_character: b"(",
-            });
+            };
             fn parser(input: &[u8]) -> IResult<&[u8], Vec<u8>> {
                 delimited(
                     tag("("),
@@ -138,10 +154,9 @@ mod tests {
                     tag(")"),
                 )(input)
             }
-            let stream = StreamParserBuilder::default()
+            let stream = StreamParserBuilder::with_heuristic(heuristic)
                 .work_buffer(&mut work_buffer)
                 .parser(parser)
-                .heuristic(heuristic)
                 .iterator(it)
                 .build()
                 .unwrap()
@@ -157,16 +172,15 @@ mod tests {
             work_buffer.clear();
 
             println!("----------------------------------------");
-            let heuristic = Heuristic::SearchGroup(StartGroup {
+            let heuristic = StartGroupByParser {
                 parser: start_group_parenthesis,
                 start_character: b"(",
-            });
+            };
 
-            let stream = StreamParserBuilder::default()
+            let stream = StreamParserBuilder::with_heuristic(heuristic)
                 .work_buffer(&mut work_buffer)
                 .parser(parser)
                 .reader(data)
-                .heuristic(heuristic)
                 .build()
                 .unwrap()
                 .stream();

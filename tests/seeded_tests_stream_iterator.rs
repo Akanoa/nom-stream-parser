@@ -1,9 +1,9 @@
-use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha8Rng;
+use rand_chacha::rand_core::SeedableRng;
 
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;
-use nom_stream_parser::{Heuristic, StartGroup};
+use nom_stream_parser::StartGroupByParser;
 use utils::parsers::{parse_data, start_group_parenthesis};
 use utils::seeder::SeederConfig;
 use utils::source::Source;
@@ -18,16 +18,15 @@ fn failed_seed_15987178197214890543() {
     let source = Source::new(&data_to_parse).with_chunk_size(4096);
     let mut work_buffer = BufferPreallocated::new(1_048_576).with_name("work buffer");
 
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
-    });
+    };
 
-    let stream = StreamParserBuilder::default()
+    let stream = StreamParserBuilder::with_heuristic(heuristic)
         .work_buffer(&mut work_buffer)
         .parser(parse_data)
         .iterator(source)
-        .heuristic(heuristic)
         .build()
         .unwrap()
         .stream();
@@ -46,16 +45,15 @@ fn failed_seed_3386706919782654474() {
     let source = Source::new(&data_to_parse).with_chunk_size(4096);
     let mut work_buffer = BufferPreallocated::new(1_048_576).with_name("work buffer");
 
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
-    });
+    };
 
-    let stream = StreamParserBuilder::default()
+    let stream = StreamParserBuilder::with_heuristic(heuristic)
         .work_buffer(&mut work_buffer)
         .parser(parse_data)
         .iterator(source)
-        .heuristic(heuristic)
         .build()
         .unwrap()
         .stream();
@@ -74,16 +72,15 @@ fn failed_seed_720586935495819268() {
     let source = Source::new(&data_to_parse).with_chunk_size(4096);
     let mut work_buffer = BufferPreallocated::new(1_048_576).with_name("work buffer");
 
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
-    });
+    };
 
-    let stream = StreamParserBuilder::default()
+    let stream = StreamParserBuilder::with_heuristic(heuristic)
         .work_buffer(&mut work_buffer)
         .parser(parse_data)
         .iterator(source)
-        .heuristic(heuristic)
         .build()
         .unwrap()
         .stream();

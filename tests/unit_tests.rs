@@ -1,6 +1,5 @@
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
-use nom_stream_parser::{DataSource, StreamParser};
-use nom_stream_parser::{Heuristic, StartGroup};
+use nom_stream_parser::{heuristic::Increment, StartGroupByParser};
 use utils::parsers::{parse_data, start_group_parenthesis};
 use utils::source::Source;
 
@@ -18,18 +17,17 @@ fn test_stream_parser() {
         vec![14, 34],
     ];
     let source = Source::new(data).with_chunk_size(20);
-    let mut save_buffer = BufferPreallocated::new(40).with_name("save buffer");
     let mut work_buffer = BufferPreallocated::new(40).with_name("work buffer");
     let parser = parse_data;
-    let group_start = StartGroup {
+    let heuristic = StartGroupByParser {
         parser: start_group_parenthesis,
         start_character: b"(",
     };
-    let stream = StreamParser::new(
-        DataSource::Iterator::<_, &[u8]>(source),
+    let stream = nom_stream_parser::stream_parsers::sync_iterator::StreamParser::new(
+        source,
         &mut work_buffer,
         parser,
-        Heuristic::SearchGroup(group_start),
+        heuristic,
     );
 
     let result = stream.flatten().collect::<Vec<Vec<u8>>>();
@@ -50,15 +48,14 @@ fn test_stream_parser_increment() {
         vec![14, 34],
     ];
     let source = Source::new(data).with_chunk_size(20);
-    let mut save_buffer = BufferPreallocated::new(40).with_name("save buffer");
     let mut work_buffer = BufferPreallocated::new(40).with_name("work buffer");
     let parser = parse_data;
 
-    let stream = StreamParser::new(
-        DataSource::Iterator::<_, &[u8]>(source),
+    let stream = nom_stream_parser::stream_parsers::sync_iterator::StreamParser::new(
+        source,
         &mut work_buffer,
         parser,
-        Heuristic::Increment,
+        Increment,
     );
 
     let result = stream.flatten().collect::<Vec<Vec<u8>>>();

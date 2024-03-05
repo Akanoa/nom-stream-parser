@@ -1,13 +1,13 @@
-use nom::{AsBytes, character, IResult};
 use nom::bytes::streaming::tag;
 use nom::character::complete::digit1;
 use nom::combinator::map_parser;
 use nom::multi::separated_list1;
 use nom::sequence::delimited;
+use nom::{character, AsBytes, IResult};
 
-use nom_stream_parser::{Heuristic, StartGroup};
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;
+use nom_stream_parser::StartGroupByParser;
 use utils::source::Source;
 
 pub fn start_group_complex(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -40,10 +40,10 @@ fn by_structure() {
     let source = Source::new(data).with_chunk_size(4);
     // This heuristic try to found the start_character and
     // apply the parser defined to detect complex start group
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = StartGroupByParser {
         parser: start_group_complex,
         start_character: "%".as_bytes(),
-    });
+    };
     let stream = nom_stream_parser::stream_parsers::sync_iterator::StreamParser::new(
         source,
         &mut work_buffer,
@@ -74,15 +74,14 @@ fn by_builder() {
 
     // This heuristic try to found the start_character and
     // apply the parser defined to detect complex start group
-    let heuristic = Heuristic::SearchGroup(StartGroup {
+    let heuristic = StartGroupByParser {
         parser: start_group_complex,
         start_character: "%".as_bytes(),
-    });
+    };
 
-    let stream = StreamParserBuilder::default()
+    // Set the heuristic at the definition of the builder
+    let stream = StreamParserBuilder::with_heuristic(heuristic)
         .parser(parser)
-        // Set the heuristic
-        .heuristic(heuristic)
         .work_buffer(&mut work_buffer)
         // Set the Iterator which be used as data source
         .iterator(source)

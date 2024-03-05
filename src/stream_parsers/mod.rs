@@ -1,13 +1,13 @@
-use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
+use crate::heuristic::Heuristic;
 use crate::parser_state::{ParsableState, SearchState};
-use crate::{Buffer, Heuristic, ParserFunction};
+use crate::{Buffer, ParserFunction};
 
 pub mod sync_iterator;
 pub mod sync_reader;
 
-struct ParserCommonFields<'a, B, O> {
+struct ParserCommonFields<'a, B, O, H: Heuristic> {
     /// Parsed buffer
     pub work_buffer: &'a mut B,
     /// Define both whether a new group must be searched
@@ -21,13 +21,13 @@ struct ParserCommonFields<'a, B, O> {
     /// and result data yielded by stream parser
     pub parser: ParserFunction<O>,
     ///
-    pub heuristic: RefCell<Heuristic<'a>>,
+    pub heuristic: H,
     #[allow(unused)]
     /// Used to debug the system when it comes to infinite loop
     i: usize,
 }
 
-impl<'a, B, O> Deref for ParserCommonFields<'a, B, O>
+impl<'a, B, O, H: Heuristic> Deref for ParserCommonFields<'a, B, O, H>
 where
     B: Buffer,
 {
@@ -38,7 +38,7 @@ where
     }
 }
 
-impl<'a, B, O> DerefMut for ParserCommonFields<'a, B, O>
+impl<'a, B, O, H: Heuristic> DerefMut for ParserCommonFields<'a, B, O, H>
 where
     B: Buffer,
 {
