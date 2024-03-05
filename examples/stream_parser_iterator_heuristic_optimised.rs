@@ -1,13 +1,13 @@
+use nom::{AsBytes, character, IResult};
 use nom::bytes::streaming::tag;
 use nom::character::complete::digit1;
 use nom::combinator::map_parser;
 use nom::multi::separated_list1;
 use nom::sequence::delimited;
-use nom::{character, AsBytes, IResult};
 
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;
-use nom_stream_parser::{EnumHeuristic, StartGroupByParser};
+use nom_stream_parser::StartGroupByParser;
 use utils::source::Source;
 
 pub fn start_group_complex(input: &[u8]) -> IResult<&[u8], &[u8]> {
