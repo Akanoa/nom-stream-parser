@@ -1,11 +1,12 @@
 use std::ops::{Deref, DerefMut};
 
+use crate::{Buffer, ParserFunction};
 use crate::heuristic::Heuristic;
 use crate::parser_state::{ParsableState, SearchState};
-use crate::{Buffer, ParserFunction};
 
 pub mod async_iterator;
 pub mod sync_iterator;
+pub mod async_reader;
 pub mod sync_reader;
 
 struct ParserCommonFields<'a, B, O, H: Heuristic> {

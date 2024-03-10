@@ -4,8 +4,8 @@ use std::io::Read;
 use derive_builder::Builder;
 use futures_lite::Stream;
 
-use crate::heuristic::{Heuristic, Increment};
 use crate::{Buffer, ParserFunction, StreamParserError};
+use crate::heuristic::{Heuristic, Increment};
 
 #[derive(Builder)]
 #[builder(pattern = "owned")]
@@ -77,8 +77,8 @@ pub struct AsyncStreamParser<'a, B: Buffer, O: Debug, H: Heuristic> {
 }
 
 impl<'a, B: Buffer, O: Debug, H: Heuristic> AsyncStreamParserBuilder<'a, B, O, H> {
-    pub fn reader<R: Read>(self, reader: R) -> StreamParserReaderBuilder<'a, B, R, O, H> {
-        StreamParserReaderBuilder {
+    pub fn reader<R: Read>(self, reader: R) -> AsyncStreamParserReaderBuilder<'a, B, R, O, H> {
+        AsyncStreamParserReaderBuilder {
             reader: Some(reader),
             work_buffer: self.work_buffer,
             parser: self.parser,
@@ -165,6 +165,23 @@ where
     }
 }
 
+impl<'a, B, R, O, H> StreamParserReaderBuilder<'a, B, R, O, H>
+where
+    R: Read,
+    B: Buffer,
+    H: Heuristic + Unpin,
+    O: Debug,
+{
+    pub fn asynchronous(self) -> AsyncStreamParserReaderBuilder<'a, B, R, O, H> {
+        AsyncStreamParserReaderBuilder {
+            reader: self.reader,
+            work_buffer: self.work_buffer,
+            parser: self.parser,
+            heuristic: self.heuristic,
+        }
+    }
+}
+
 impl<'a, B, R, O, H> StreamParserReader<'a, B, R, O, H>
 where
     R: Read,
@@ -231,20 +248,37 @@ where
     }
 }
 
+impl<'a, B, R, O, H> AsyncStreamParserReader<'a, B, R, O, H>
+where
+    R: Read + 'a,
+    B: Buffer,
+    H: Heuristic + Unpin + 'a,
+    O: Debug + 'a,
+{
+    pub fn stream(self) -> impl Stream<Item = Result<O, StreamParserError>> + 'a {
+        crate::stream_parsers::async_reader::stream(
+            self.work_buffer,
+            self.parser,
+            self.heuristic,
+            self.reader,
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use nom::{AsBytes, character, IResult};
     use nom::bytes::streaming::tag;
     use nom::combinator::map_parser;
     use nom::multi::separated_list1;
     use nom::sequence::delimited;
-    use nom::{character, AsBytes, IResult};
 
     use utils::parsers::start_group_parenthesis;
     use utils::source::Source;
 
+    use crate::{Buffer, StartGroupByParser};
     use crate::buffers::preallocated::BufferPreallocated;
     use crate::builder::StreamParserBuilder;
-    use crate::{Buffer, StartGroupByParser};
 
     #[test_pretty_log::test]
     fn test_builder() {
