@@ -1,8 +1,8 @@
+use nom::{AsBytes, character, IResult};
 use nom::bytes::streaming::tag;
 use nom::combinator::map_parser;
 use nom::multi::separated_list1;
 use nom::sequence::delimited;
-use nom::{character, AsBytes, IResult};
 
 use nom_stream_parser::buffers::preallocated::BufferPreallocated;
 use nom_stream_parser::builder::StreamParserBuilder;

@@ -23,7 +23,7 @@ rand_chacha = "0.3.1"
 rand = "0.8.5"
 test-pretty-log = "0.6.2"
 utils = { path = "utils" }
-tokio = { version = "1.36.0", features = ["macros", "rt"] }
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
 
 [[bench]]
 name = "stream_iterator"

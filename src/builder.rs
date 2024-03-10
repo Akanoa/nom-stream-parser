@@ -2,9 +2,10 @@ use std::fmt::Debug;
 use std::io::Read;
 
 use derive_builder::Builder;
+use futures_lite::Stream;
 
 use crate::heuristic::{Heuristic, Increment};
-use crate::{Buffer, ParserFunction};
+use crate::{Buffer, ParserFunction, StreamParserError};
 
 #[derive(Builder)]
 #[builder(pattern = "owned")]
@@ -31,6 +32,14 @@ impl<'a, B: Buffer, O: Debug, H: Heuristic> StreamParserBuilder<'a, B, O, H> {
         Self::create_empty().heuristic(heuristic)
     }
 
+    pub fn asynchronous(self) -> AsyncStreamParserBuilder<'a, B, O, H> {
+        AsyncStreamParserBuilder {
+            work_buffer: self.work_buffer,
+            parser: self.parser,
+            heuristic: self.heuristic,
+        }
+    }
+
     pub fn reader<R: Read>(self, reader: R) -> StreamParserReaderBuilder<'a, B, R, O, H> {
         StreamParserReaderBuilder {
             reader: Some(reader),
@@ -45,6 +54,43 @@ impl<'a, B: Buffer, O: Debug, H: Heuristic> StreamParserBuilder<'a, B, O, H> {
         iterator: I,
     ) -> StreamParserIteratorBuilder<'a, B, I, O, H> {
         StreamParserIteratorBuilder {
+            iterator: Some(iterator),
+            work_buffer: self.work_buffer,
+            parser: self.parser,
+            heuristic: self.heuristic,
+        }
+    }
+}
+
+#[derive(Builder)]
+#[builder(pattern = "owned")]
+#[builder(build_fn(skip))]
+#[builder(custom_constructor)]
+pub struct AsyncStreamParser<'a, B: Buffer, O: Debug, H: Heuristic> {
+    #[allow(unused)]
+    work_buffer: &'a mut B,
+    #[allow(unused)]
+    parser: ParserFunction<O>,
+    #[allow(unused)]
+    #[builder(private)]
+    heuristic: H,
+}
+
+impl<'a, B: Buffer, O: Debug, H: Heuristic> AsyncStreamParserBuilder<'a, B, O, H> {
+    pub fn reader<R: Read>(self, reader: R) -> StreamParserReaderBuilder<'a, B, R, O, H> {
+        StreamParserReaderBuilder {
+            reader: Some(reader),
+            work_buffer: self.work_buffer,
+            parser: self.parser,
+            heuristic: self.heuristic,
+        }
+    }
+
+    pub fn iterator<I: Iterator<Item = &'a [u8]>>(
+        self,
+        iterator: I,
+    ) -> AsyncStreamParserIteratorBuilder<'a, B, I, O, H> {
+        AsyncStreamParserIteratorBuilder {
             iterator: Some(iterator),
             work_buffer: self.work_buffer,
             parser: self.parser,
@@ -102,6 +148,23 @@ where
     }
 }
 
+impl<'a, B, I, O, H> StreamParserIteratorBuilder<'a, B, I, O, H>
+where
+    I: Iterator<Item = &'a [u8]>,
+    B: Buffer,
+    H: Heuristic + Unpin,
+    O: Debug,
+{
+    pub fn asynchronous(self) -> AsyncStreamParserIteratorBuilder<'a, B, I, O, H> {
+        AsyncStreamParserIteratorBuilder {
+            iterator: self.iterator,
+            work_buffer: self.work_buffer,
+            parser: self.parser,
+            heuristic: self.heuristic,
+        }
+    }
+}
+
 impl<'a, B, R, O, H> StreamParserReader<'a, B, R, O, H>
 where
     R: Read,
@@ -115,6 +178,55 @@ where
             self.work_buffer,
             self.parser,
             self.heuristic,
+        )
+    }
+}
+
+#[derive(Builder)]
+#[builder(pattern = "owned")]
+pub struct AsyncStreamParserIterator<'a, B, I, O, H>
+where
+    I: Iterator<Item = &'a [u8]>,
+    B: Buffer,
+    H: Heuristic,
+    O: Debug,
+{
+    pub iterator: I,
+    pub work_buffer: &'a mut B,
+    pub parser: ParserFunction<O>,
+    #[builder(private)]
+    pub heuristic: H,
+}
+
+#[derive(Builder)]
+#[builder(pattern = "owned")]
+pub struct AsyncStreamParserReader<'a, B, R, O, H = Increment>
+where
+    R: Read,
+    B: Buffer,
+    H: Heuristic,
+    O: Debug,
+{
+    pub reader: R,
+    pub work_buffer: &'a mut B,
+    pub parser: ParserFunction<O>,
+    #[builder(private)]
+    pub heuristic: H,
+}
+
+impl<'a, B, I, O, H> AsyncStreamParserIterator<'a, B, I, O, H>
+where
+    I: Iterator<Item = &'a [u8]> + 'a,
+    B: Buffer,
+    H: Heuristic + Unpin + 'a,
+    O: Debug + 'a,
+{
+    pub fn stream(self) -> impl Stream<Item = Result<O, StreamParserError>> + 'a {
+        crate::stream_parsers::async_iterator::stream(
+            self.work_buffer,
+            self.parser,
+            self.heuristic,
+            self.iterator,
         )
     }
 }

@@ -4,10 +4,9 @@ use crate::heuristic::Heuristic;
 use crate::parser_state::{ParsableState, SearchState};
 use crate::{Buffer, ParserFunction};
 
+pub mod async_iterator;
 pub mod sync_iterator;
 pub mod sync_reader;
-
-pub mod async_iterator;
 
 struct ParserCommonFields<'a, B, O, H: Heuristic> {
     /// Parsed buffer

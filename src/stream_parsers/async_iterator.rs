@@ -3,14 +3,14 @@ use std::fmt::Debug;
 use async_stream::stream;
 use futures_lite::Stream;
 
+use crate::{debug, ParserFunction};
+use crate::{Buffer, StreamParserError};
 use crate::heuristic::Heuristic;
 use crate::logic::parse_internal;
 use crate::parser_state::ParsableState;
 use crate::stream_parsers::ParserCommonFields;
-use crate::{debug, ParserFunction};
-use crate::{Buffer, StreamParserError};
 
-fn stream<'a, B, I, H, O>(
+pub fn stream<'a, B, I, H, O>(
     work_buffer: &'a mut B,
     parser: ParserFunction<O>,
     heuristic: H,
@@ -79,8 +79,8 @@ mod tests {
     use utils::source::Source;
 
     use crate::buffers::preallocated::BufferPreallocated;
-    use crate::stream_parsers::async_iterator::stream;
     use crate::StartGroupByParser;
+    use crate::stream_parsers::async_iterator::stream;
 
     #[tokio::test]
     async fn test_stream_async() {
