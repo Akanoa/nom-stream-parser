@@ -89,7 +89,7 @@ impl<'a, B, I, O, H> StreamParserIterator<'a, B, I, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
     B: Buffer,
-    H: Heuristic,
+    H: Heuristic + Unpin,
     O: Debug,
 {
     pub fn stream(self) -> crate::stream_parsers::sync_iterator::StreamParser<'a, I, B, O, H> {
@@ -134,10 +134,10 @@ mod tests {
     use crate::builder::StreamParserBuilder;
     use crate::{Buffer, StartGroupByParser};
 
-    #[test]
+    #[test_pretty_log::test]
     fn test_builder() {
         {
-            let data = b"noise(1,4,3,4)###(2,5)".as_bytes();
+            let data = b"noise(1,4,a,4)###(2,5)".as_bytes();
             let it = Source::new(data).with_chunk_size(4);
             let mut work_buffer = BufferPreallocated::new(20);
             let heuristic = StartGroupByParser {

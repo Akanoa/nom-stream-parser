@@ -13,6 +13,8 @@ thiserror = "1.0.57"
 tracing = "0.1.40"
 derive_builder = { version = "0.20.0", optional = true }
 bytes = "1.5.0"
+async-stream = "0.3.5"
+futures-lite = "2.2.0"
 
 [dev-dependencies]
 bench-macros = { path = "bench-macros" }
@@ -21,6 +23,7 @@ rand_chacha = "0.3.1"
 rand = "0.8.5"
 test-pretty-log = "0.6.2"
 utils = { path = "utils" }
+tokio = { version = "1.36.0", features = ["macros", "rt"] }
 
 [[bench]]
 name = "stream_iterator"

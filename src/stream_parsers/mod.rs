@@ -7,6 +7,8 @@ use crate::{Buffer, ParserFunction};
 pub mod sync_iterator;
 pub mod sync_reader;
 
+pub mod async_iterator;
+
 struct ParserCommonFields<'a, B, O, H: Heuristic> {
     /// Parsed buffer
     pub work_buffer: &'a mut B,
@@ -25,6 +27,23 @@ struct ParserCommonFields<'a, B, O, H: Heuristic> {
     #[allow(unused)]
     /// Used to debug the system when it comes to infinite loop
     i: usize,
+}
+
+impl<'a, B, O, H: Heuristic> ParserCommonFields<'a, B, O, H>
+where
+    H: Heuristic,
+    B: Buffer,
+{
+    pub fn new(work_buffer: &'a mut B, parser: ParserFunction<O>, heuristic: H) -> Self {
+        ParserCommonFields {
+            work_buffer,
+            state: (SearchState::SearchForStart, ParsableState::NeedMoreData),
+            cursor: 0,
+            parser,
+            heuristic,
+            i: 0,
+        }
+    }
 }
 
 impl<'a, B, O, H: Heuristic> Deref for ParserCommonFields<'a, B, O, H>

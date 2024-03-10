@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::fmt::Debug;
 
 use itertools::{unfold, Unfold};
@@ -61,7 +60,7 @@ impl<'a, I, B, O, H> StreamParser<'a, I, B, O, H>
 where
     I: Iterator<Item = &'a [u8]>,
     B: Buffer,
-    H: Heuristic,
+    H: Heuristic + Unpin,
     O: Debug,
 {
     pub fn new(
